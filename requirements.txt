@@ -1,11 +1,11 @@
-import hydralit as hy
-import streamlit as st
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from scipy.spatial import distance
-import plotly.express as px
-from streamlit_plotly_events import plotly_events
-import plotly.graph_objects as go
-import streamlit.components.v1 as components
-import matplotlib.animation as animation
+hydralit
+streamlit
+numpy
+pandas
+matplotlib.pyplot
+scipy.spatial
+plotly.express
+streamlit_plotly_events
+plotly.graph_objects
+streamlit.components.v1
+matplotlib.animation
