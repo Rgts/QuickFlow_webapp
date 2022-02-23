@@ -2,10 +2,7 @@ hydralit
 streamlit
 numpy
 pandas
-matplotlib.pyplot
-scipy.spatial
-plotly.express
+matplotlib
+scipy
+plotly
 streamlit_plotly_events
-plotly.graph_objects
-streamlit.components.v1
-matplotlib.animation
