@@ -1,1 +1,1 @@
-web: sh setup.sh && streamlit run QuiclFlow_app.py
+web: sh setup.sh && streamlit run QuickFlow_app.py
