@@ -5,13 +5,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.spatial import distance
 import plotly.express as px
-#https://github.com/null-jones/streamlit-plotly-events
 from streamlit_plotly_events import plotly_events
 import plotly.graph_objects as go
 import streamlit.components.v1 as components
 import matplotlib.animation as animation
 
-app = hy.HydraApp(title='Quick Flow')
+app = hy.HydraApp(title='QuickFlow')
 #Initialize variables in session_state
 if 'filename' not in st.session_state:
     st.session_state.filename = None
@@ -89,52 +88,57 @@ def Detect_free_nodes(elements):
 
 @app.addapp()
 def File():
-    #hy.info('Hello from app1')
-    st.write("Filename :", st.session_state.filename)
+    st.header("Welcome to QuickFlow !")
+    st.subheader("First, load a mesh file !")
 
     uploadedfile = st.file_uploader("Choose a file", type="inp")
     if uploadedfile is not None:
         st.write("Uploaded file is ", uploadedfile.name)
-
+        st.session_state.filename = uploadedfile.name
         st.session_state.nodes, st.session_state.elements = Read_inp(
             uploadedfile)
-        st.session_state.filename = uploadedfile.name
+        #Each new file load we need to remove old selection from potential old
+        # file
+        st.session_state.injection_points = []
+
+    st.subheader("Need demo files ?")
+
+    st.markdown(
+        '<a href="https://raw.githubusercontent.com/Rgts/QuickFlow_webapp/master/Mesh/example1.inp">example1.inp</a>',
+        unsafe_allow_html=True)
+    st.markdown(
+        '<a href="https://raw.githubusercontent.com/Rgts/QuickFlow_webapp/master/Mesh/example2.inp">example2.inp</a>',
+        unsafe_allow_html=True)
+
 
 
 @app.addapp()
 def View():
-    if st.session_state.filename is not None:
-        st.subheader("Mesh loaded")
-
-        #fig = plt.figure(figsize=(1,1))
-        #plt.triplot(st.session_state.nodes[:, 0], st.session_state.nodes[:, 1],
-        #            st.session_state.elements)
-        #plt.axis('scaled')
-        #fig.set_figheight(4)
-
-        #plt.show()
-
-        fig, axis = plt.subplots(1, figsize=[10,3])
-        axis.triplot(st.session_state.nodes[:, 0], st.session_state.nodes[:, 1],
-                    st.session_state.elements,"g-",lw=0.2)
-        axis.xaxis.set_visible(False)
-        axis.yaxis.set_visible(False)
-        fig.patch.set_alpha(0)
-        axis.patch.set_alpha(0)
-        fig.set_figheight(4)
-
-        axis.set_aspect('equal', adjustable='datalim')
-        for spine in ['top', 'right', 'left', 'bottom']:
-            axis.spines[spine].set_visible(False)
-        st.write(fig)
-
-    else:
-        st.subheader("No mesh loaded")
+    if st.session_state.filename is None:
+        st.subheader("No file")
+        return
+    st.subheader("Mesh")
+    fig, axis = plt.subplots(1, figsize=[10,3])
+    axis.triplot(st.session_state.nodes[:, 0], st.session_state.nodes[:, 1],
+                st.session_state.elements,"g-",lw=0.2)
+    axis.xaxis.set_visible(False)
+    axis.yaxis.set_visible(False)
+    fig.patch.set_alpha(0)
+    axis.patch.set_alpha(0)
+    fig.set_figheight(4)
+    axis.set_aspect('equal', adjustable='datalim')
+    for spine in ['top', 'right', 'left', 'bottom']:
+        axis.spines[spine].set_visible(False)
+    st.write(fig)
 
 
 @app.addapp()
 def Edit():
-    st.subheader("Injection points")
+    if st.session_state.filename is None:
+        st.subheader("No file")
+        return
+
+    st.subheader("Select some injection points")
 
     fig = go.Figure(data=go.Scatter(x=st.session_state.nodes[:, 0],
                                     y=st.session_state.nodes[:, 1],
@@ -154,13 +158,10 @@ def Edit():
             'visible': False,
             'showticklabels': False
         })
-
-
     selected_points = plotly_events(fig,
                                     click_event=True,
                                     select_event=False,
                                     hover_event=False)
-
     if selected_points != []:
         new_pointIndex = selected_points[0]['pointIndex']
         st.session_state.injection_points.append(new_pointIndex)
@@ -171,54 +172,63 @@ def Edit():
     st.write(pd.DataFrame(st.session_state.injection_points, columns=['Selection']))
 
 
+
 @app.addapp()
 def Run():
+    if st.session_state.filename is None:
+        st.subheader("No file")
+        return
+    if st.session_state.injection_points==[]:
+        st.subheader("No injection point")
+        return
+
+    st.subheader("Estimated flow pattern")
     fig, ax = plt.subplots()
     ax.axis('scaled')
-
     dist = Build_dist_injection_points(idx=st.session_state.injection_points,
-                                       nodes=st.session_state.nodes)
-
+                                    nodes=st.session_state.nodes)
     max_dist = int(np.max(dist))
-
     def animate(i):
         ax.clear()
         dist = Build_dist_injection_points(
             idx=st.session_state.injection_points,
             nodes=st.session_state.nodes)
-
         free_nodes = Detect_free_nodes(st.session_state.elements)
-
         dist_mold = -Build_dist_injection_points(
             idx=free_nodes,
             nodes=st.session_state.nodes)
-
         dist = dist - 2 * i
         dist = np.maximum(dist, dist_mold)
-
         ax.tricontour(st.session_state.nodes[:, 0],
-                      st.session_state.nodes[:, 1],
-                      st.session_state.elements,
-                      dist,
-                      levels=0)
+                    st.session_state.nodes[:, 1],
+                    st.session_state.elements,
+                    dist,
+                    levels=0)
         ax.xaxis.set_visible(False)
         ax.yaxis.set_visible(False)
         fig.patch.set_alpha(0)
         ax.patch.set_alpha(0)
         return ax
-
     ani = animation.FuncAnimation(fig,
-                                  animate,
-                                  frames=int(max_dist / 2),
-                                  interval=50,
-                                  blit=False)
+                                animate,
+                                frames=int(max_dist / 2),
+                                interval=50,
+                                blit=False)
     plt.show()
     components.html(ani.to_jshtml(), height=1000)
 
 
 @app.addapp()
 def About():
-    hy.info('Hello from app 2')
+    st.subheader("Designed by Renaud Gantois.")
+    st.markdown(
+        '<a href="mailto:renaud.gantois@gmail.com">renaud.gantois@gmail.com</a>'
+        , unsafe_allow_html=True)
+    st.subheader("Check out my GitHub repo !")
 
-#Run the whole lot, we get navbar, state management and app isolation, all with this tiny amount of work.
+    st.markdown(
+        '<a href="https://github.com/Rgts/QuickFlow_webapp">https://github.com/Rgts/QuickFlow_webapp</a>',
+        unsafe_allow_html=True)
+
+
 app.run()
