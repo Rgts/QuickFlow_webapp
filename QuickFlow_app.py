@@ -9,6 +9,7 @@ from streamlit_plotly_events import plotly_events
 import plotly.graph_objects as go
 import streamlit.components.v1 as components
 import matplotlib.animation as animation
+import requests
 from utils import *
 
 #Initialize variables in session_state
@@ -20,6 +21,8 @@ if 'nodes' not in st.session_state:
     st.session_state.nodes = None
 if 'injection_points' not in st.session_state:
     st.session_state.injection_points = []
+if 'free_nodes' not in st.session_state:
+    st.session_state.free_nodes = []
 
 over_theme = {
     'txc_inactive': "white",  #'rgba(120,120,120)',#fontcolor unselected menu
@@ -101,23 +104,45 @@ menu_id = hc.nav_bar(
 )
 
 if menu_id == 'File-Open-from-database':
-    choice = st.selectbox('Select a file', ('example1.inp', 'example2.inp'))
+    st.subheader("Open file from demo database")
+    filelist=[]
+    import os
+    for root, dirs, files in os.walk("Mesh/"):
+        for file in files:
+            if file.endswith(".inp"):
+                filename=os.path.join(root, file)
+                filelist.append(filename)
+    choice = st.selectbox('Select a file', filelist)
 
-    st.write("Uploaded file is ", "Mesh/" + choice)
+    st.write("Uploaded file is ", choice)
     st.session_state.filename = choice
-    st.session_state.nodes, st.session_state.elements = Read_inp("Mesh/" +
-                                                                 choice)
+    uploadedfile=open(choice)
+    url = "https://quickflow-api.herokuapp.com/upload_and_read_inp_2D"
+    uploadedfile_dict = {'inpfile': uploadedfile}
+    params={"remove_unused_component":True}
+    response = requests.post(url, files=uploadedfile_dict, params=params)
+    st.session_state.nodes = np.array(response.json()['nodes'])
+    st.session_state.elements = np.array(response.json()['elements'])
+    st.session_state.free_nodes = response.json()['free_nodes']    # st.session_state.nodes, st.session_state.elements = Read_inp(choice)
     #Each new file load we need to remove old selection in case of existing file
     st.session_state.injection_points = []
 
 if menu_id == 'File-Open-from_user-data':
+    st.subheader("Open file from demo database")
 
-    uploadedfile = st.file_uploader("Choose a file", type="inp")
+    uploadedfile = st.file_uploader("Choose a file", type="inp",)
     if uploadedfile is not None:
         st.write("Uploaded file is ", uploadedfile.name)
         st.session_state.filename = uploadedfile.name
-        st.session_state.nodes, st.session_state.elements = Read_inp(
-            uploadedfile)
+
+        url = "https://quickflow-api.herokuapp.com/upload_and_read_inp_2D"
+        uploadedfile_dict = {'inpfile': uploadedfile}
+        params={"remove_unused_component":True}
+        response = requests.post(url, files=uploadedfile_dict, params=params)
+        st.session_state.nodes = np.array(response.json()['nodes'])
+        st.session_state.elements = np.array(response.json()['elements'])
+        st.session_state.free_nodes = response.json()['free_nodes']
+
         #Each new file load we need to remove old selection from potential old
         # file
         st.session_state.injection_points = []
@@ -211,34 +236,36 @@ if menu_id == "Edit-Select-injection-points":
 if menu_id == "QuickFlow-About":
     st.subheader("About QuickFlow")
     st.write("This work is an [open source project]\
-                (https://github.com/Rgts/QuickFlow_webapp) hosted on GitHub.")
+                (https://github.com/Rgts/QuickFlow_webapp) hosted on GitHub."                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            )
     st.write("Author : [renaud.gantois@gmailcom]\
-        (mailto:renaud.gantois@gmail.com).")
+        (mailto:renaud.gantois@gmail.com)."                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    )
 
 if menu_id == "Run-Run-simulation":
     if st.session_state.filename is None:
         st.subheader("No file")
     elif st.session_state.injection_points == []:
         st.subheader("No injection point")
-    elif st.button('Run'):
-        #st.write('Why hello there')
 
-        st.subheader("Estimated flow pattern")
+    else : st.subheader("Run flow pattern simulation ?")
+
+    if st.button('Run'):
+        #st.write('Why hello there')
         fig, ax = plt.subplots()
         ax.axis('scaled')
-        dist = Build_dist_injection_points(
+        dist = Build_dist(
             idx=st.session_state.injection_points,
             nodes=st.session_state.nodes)
         max_dist = int(np.max(dist))
 
         def animate(i):
             ax.clear()
-            dist = Build_dist_injection_points(
+            dist = Build_dist(
                 idx=st.session_state.injection_points,
                 nodes=st.session_state.nodes)
-            free_nodes = Detect_free_nodes(st.session_state.elements)
-            dist_mold = -Build_dist_injection_points(
-                idx=free_nodes, nodes=st.session_state.nodes)
+
+            #free_nodes = Detect_free_nodes(st.session_state.elements)
+            dist_mold = -Build_dist(
+                idx=st.session_state.free_nodes, nodes=st.session_state.nodes)
             dist = dist - 2 * i
             dist = np.maximum(dist, dist_mold)
             ax.tricontour(st.session_state.nodes[:, 0],

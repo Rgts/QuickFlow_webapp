@@ -6,4 +6,4 @@ matplotlib
 scipy
 plotly
 streamlit_plotly_events
-#pip>=9
+requests
